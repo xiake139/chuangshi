@@ -2,22 +2,642 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>创世修仙 · 文字RPG</title>
-    <link rel="stylesheet" href="style.css">
-    <!-- 本地 SDK 文件（请确保 sdk.js 已上传到根目录） -->
-    <script src="sdk.js"></script>
-    <!-- 你的脚本（严格按依赖顺序） -->
-    <script src="config.js"></script>
-    <script src="state.js"></script>
-    <script src="staticData.js"></script>
-    <script src="utils.js"></script>
-    <script src="data.js"></script>
-    <script src="ui.js"></script>
-    <script src="events.js"></script>
-    <script src="main.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>文字修仙 · fetch版（单文件）</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', 'PingFang SC', sans-serif; }
+        body { background: #1a2b1f; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 8px; }
+        .game-container { max-width: 400px; width: 100%; background: #1e3a2b; border-radius: 32px; box-shadow: 0 20px 30px rgba(0,0,0,0.6); overflow: hidden; border: 2px solid #b38b5d; }
+        .screen { background: #1f3d2c; color: #efe6d7; padding: 16px 12px; }
+        .auth-screen { background: #0f2a1b; min-height: 500px; display: flex; flex-direction: column; justify-content: center; }
+        .auth-card { background: #2a4a33; border-radius: 24px; padding: 24px; border: 1px solid #c4a079; }
+        .auth-title { text-align: center; font-size: 28px; font-weight: bold; color: #f9e7c2; margin-bottom: 24px; text-shadow: 2px 2px 0 #5f3e1c; }
+        .input-group { margin-bottom: 16px; }
+        .input-group label { display: block; font-size: 14px; color: #d4c5a6; margin-bottom: 4px; }
+        .input-group input { width: 100%; padding: 12px 16px; background: #1f3d2c; border: 2px solid #b38b5d; border-radius: 40px; color: #f0e6d2; font-size: 16px; outline: none; }
+        .btn { background: #b88b4b; border: none; border-radius: 40px; padding: 14px; font-size: 18px; font-weight: bold; color: #1f2e1b; width: 100%; margin-top: 8px; cursor: pointer; box-shadow: 0 6px 0 #6b4c2a; transition: 0.1s; }
+        .btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #6b4c2a; }
+        .auth-switch { text-align: center; margin-top: 20px; color: #c1aa86; }
+        .auth-switch span { color: #ffcf8a; text-decoration: underline; cursor: pointer; }
+        .header { background: #123020; padding: 12px; border-radius: 30px 30px 16px 16px; border-bottom: 3px solid #b38b5d; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+        .player-name { font-size: 20px; font-weight: bold; background: #263f2e; padding: 6px 16px; border-radius: 40px; border: 1px solid #d4a76a; }
+        .resource { display: flex; gap: 12px; align-items: center; }
+        .ling-shi { background: #356b47; padding: 4px 12px; border-radius: 30px; border: 1px solid #eec27e; font-weight: bold; }
+        .hp-bar { background: #3d1f1f; padding: 4px 12px; border-radius: 30px; border: 1px solid #ffa07a; color: #ffbaba; }
+        .cultivation { background: #1e3d2d; padding: 4px 12px; border-radius: 30px; font-size: 14px; }
+        .map-card { background: #254b33; border-radius: 24px; padding: 14px; border: 2px solid #a2835a; margin-bottom: 12px; }
+        .location-name { font-size: 22px; font-weight: bold; color: #fbe5b1; }
+        .location-desc { color: #c8d9c0; margin: 6px 0; }
+        .monster-npc { display: flex; gap: 20px; margin-top: 12px; }
+        .monster-tag { background: #5a3e2b; border-radius: 30px; padding: 8px 18px; border: 1px solid #f3b37c; font-weight: bold; cursor: pointer; }
+        .npc-tag { background: #2e5f4a; border-radius: 30px; padding: 8px 18px; border: 1px solid #b8d9a6; cursor: pointer; }
+        .direction-panel { display: flex; justify-content: space-between; background: #1f3b28; padding: 12px 8px; border-radius: 60px; margin: 16px 0; border: 1px solid #8b6f47; }
+        .dir-btn { background: #b88b4b; border: none; width: 60px; height: 50px; border-radius: 40px; font-size: 24px; font-weight: bold; color: #232b17; box-shadow: 0 4px 0 #6f4f2b; cursor: pointer; }
+        .dir-btn:active { transform: translateY(4px); box-shadow: 0 1px 0 #6f4f2b; }
+        .nav-bar { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; background: #173320; padding: 12px 6px; border-radius: 40px; margin-top: 10px; border: 1px solid #b48c4e; }
+        .nav-btn { background: #315e40; border: none; color: #faeacb; font-size: 16px; padding: 8px 10px; border-radius: 30px; flex: 1 0 auto; min-width: 64px; cursor: pointer; border: 1px solid #bfa06b; }
+        .panel-content { background: #1c3a26; border-radius: 30px; padding: 20px 16px; border: 2px solid #c3a16b; margin: 12px 0; min-height: 200px; }
+        .item-row { display: flex; justify-content: space-between; align-items: center; background: #2b553b; padding: 10px 16px; border-radius: 40px; margin-bottom: 8px; border: 1px solid #dbb47a; }
+        .use-btn, .buy-btn { background: #b38b4d; border: none; border-radius: 30px; padding: 6px 16px; color: black; font-weight: bold; cursor: pointer; }
+        .hidden { display: none; }
+    </style>
 </head>
 <body>
-<div class="game-container" id="app"></div>
-</body>
-</html>
+<div class="game-container" id="app">
+    <!-- 登录/注册界面 -->
+    <div id="authScreen" class="screen auth-screen">
+        <div class="auth-card">
+            <div class="auth-title">创世修罗传</div>
+            <div id="authForm">
+                <div class="input-group">
+                    <label>邮箱</label>
+                    <input type="email" id="emailInput" value="xiake139@example.com">
+                </div>
+                <div class="input-group">
+                    <label>密码</label>
+                    <input type="password" id="passwordInput" value="114124">
+                </div>
+                <div class="input-group" id="roleNameGroup" style="display: none;">
+                    <label>角色名</label>
+                    <input type="text" id="roleNameInput" value="沈曦炎">
+                </div>
+                <button class="btn" id="loginBtn">登录</button>
+                <button class="btn" id="registerBtn" style="background:#4f7653;">注册</button>
+            </div>
+            <div class="auth-switch">
+                <span id="switchToRegister">没有账号？去注册</span>
+            </div>
+            <div id="authMessage" style="color:#f5a97f; margin-top:12px;"></div>
+        </div>
+    </div>
+
+    <!-- 游戏主界面 (初始隐藏) -->
+    <div id="gameScreen" class="screen hidden">
+        <div class="header">
+            <div class="player-name"><span id="playerName">沈曦炎</span> 【<span id="playerLv">Lv.1</span>】</div>
+            <div class="resource">
+                <span class="ling-shi" id="lingShi">100</span>
+                <span class="hp-bar" id="hpDisplay">300/300</span>
+            </div>
+            <div class="cultivation" id="cultivationVal">0/100</div>
+        </div>
+
+        <!-- 动态内容面板 -->
+        <div id="contentPanel" class="panel-content"></div>
+
+        <div class="nav-bar">
+            <button class="nav-btn" data-panel="map">地图</button>
+            <button class="nav-btn" data-panel="state">状态</button>
+            <button class="nav-btn" data-panel="backpack">背包</button>
+            <button class="nav-btn" data-panel="equip">装备</button>
+            <button class="nav-btn" data-panel="shop">商城</button>
+            <button class="nav-btn" data-panel="crystal">晶石商城</button>
+            <button class="nav-btn" data-panel="sign">签到</button>
+            <button class="nav-btn" data-panel="manage">管理</button>
+        </div>
+        <div style="text-align:right; padding:4px; color:#a7b89b; font-size:12px;" id="currentLocTag">新手村</div>
+    </div>
+</div>
+
+<script>
+    // ==================== 配置 ====================
+    const APPWRITE_ENDPOINT = 'https://fra.cloud.appwrite.io/v1';
+    const PROJECT_ID = 'chuangshixiuluozhuan';
+    const DATABASE_ID = 'chuangshixiuluozhuan';
+    
+    const COLLECTIONS = {
+        USERS: 'players',
+        PLAYER_DEFAULT: 'player_default',
+        MAPS: 'maps',
+        MONSTERS: 'monsters',
+        EQUIPMENT: 'equipment',
+        SHOP: 'shop',
+        CRYSTAL_SHOP: 'crystal_shop'
+    };
+    // ==============================================
+
+    // 状态变量
+    let currentUser = null;
+    let currentUserId = null;
+    let playerData = null;
+    let currentMapData = null;
+    let equipmentCache = {};
+
+    // DOM 元素
+    const authScreen = document.getElementById('authScreen');
+    const gameScreen = document.getElementById('gameScreen');
+    const emailInput = document.getElementById('emailInput');
+    const passwordInput = document.getElementById('passwordInput');
+    const roleNameInput = document.getElementById('roleNameInput');
+    const roleNameGroup = document.getElementById('roleNameGroup');
+    const authMessage = document.getElementById('authMessage');
+    const switchSpan = document.getElementById('switchToRegister');
+    const contentPanel = document.getElementById('contentPanel');
+
+    let isLoginMode = true;
+
+    // ---------- 通用 fetch 封装 ----------
+    async function apiRequest(path, options = {}) {
+        const url = `${APPWRITE_ENDPOINT}${path}`;
+        const headers = {
+            'Content-Type': 'application/json',
+            'X-Appwrite-Project': PROJECT_ID,
+            ...(options.headers || {})
+        };
+        // 如果有 currentUser 的会话，自动携带 cookie（浏览器自动处理）
+        const response = await fetch(url, {
+            ...options,
+            headers,
+            credentials: 'include'
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            const error = new Error(data.message || `HTTP ${response.status}`);
+            error.code = data.code;
+            error.type = data.type;
+            throw error;
+        }
+        return data;
+    }
+
+    // ---------- 工具函数 ----------
+    function updateHeaderUI() {
+        if (!playerData) return;
+        document.getElementById('playerName').innerText = playerData.name || '沈曦炎';
+        document.getElementById('playerLv').innerText = `Lv.${playerData.level}`;
+        document.getElementById('lingShi').innerText = playerData.lingShi;
+        document.getElementById('hpDisplay').innerHTML = `${playerData.hp}/${playerData.maxHp}`;
+        document.getElementById('cultivationVal').innerText = `${playerData.exp}/${playerData.expToNext}`;
+        document.getElementById('currentLocTag').innerText = playerData.position || '新手村';
+    }
+
+    async function getEquipmentStats(equipName) {
+        if (!equipName || equipName === '无') return { attack: 0, defense: 0, hp: 0, expMultiplier: 1, currencyMultiplier: 1 };
+        if (equipmentCache[equipName]) return equipmentCache[equipName];
+        try {
+            const doc = await apiRequest(`/databases/${DATABASE_ID}/collections/${COLLECTIONS.EQUIPMENT}/documents/${equipName}`);
+            equipmentCache[equipName] = {
+                attack: doc.attack || 0,
+                defense: doc.defense || 0,
+                hp: doc.hp || 0,
+                expMultiplier: doc.expMultiplier || 1,
+                currencyMultiplier: doc.currencyMultiplier || 1
+            };
+            return equipmentCache[equipName];
+        } catch (error) {
+            console.warn(`装备 ${equipName} 不存在`);
+            return { attack: 0, defense: 0, hp: 0, expMultiplier: 1, currencyMultiplier: 1 };
+        }
+    }
+
+    async function calcTotalAttack() {
+        let base = playerData.baseAttack || 0;
+        const weaponStats = await getEquipmentStats(playerData.equipWeapon);
+        return base + (weaponStats.attack || 0);
+    }
+
+    async function calcTotalDefense() {
+        let base = playerData.baseDefense || 0;
+        const armorStats = await getEquipmentStats(playerData.equipArmor);
+        return base + (armorStats.defense || 0);
+    }
+
+    async function calcTotalHp() {
+        let base = playerData.maxHp || 300;
+        const armorStats = await getEquipmentStats(playerData.equipArmor);
+        return base + (armorStats.hp || 0);
+    }
+
+    // ---------- 玩家数据操作 ----------
+    async function createPlayerData(userId, roleName) {
+        let defaultData;
+        try {
+            defaultData = await apiRequest(`/databases/${DATABASE_ID}/collections/${COLLECTIONS.PLAYER_DEFAULT}/documents/default`);
+        } catch (error) {
+            console.error('无法获取默认玩家配置', error);
+            defaultData = {
+                level: 1, lingShi: 100, hp: 300, maxHp: 300, exp: 0, expToNext: 100,
+                baseAttack: 5, baseDefense: 2, equipWeapon: 'xinshoujian', equipArmor: 'xinshouyi',
+                equipAccessory: '无', backpack: JSON.stringify({ "回血丹": 5, "晶石令": 3 }),
+                position: 'xinshoucun'
+            };
+        }
+        const playerDoc = {
+            documentId: userId,
+            data: {
+                name: roleName,
+                level: defaultData.level,
+                lingShi: defaultData.lingShi,
+                hp: defaultData.hp,
+                maxHp: defaultData.maxHp,
+                exp: defaultData.exp,
+                expToNext: defaultData.expToNext,
+                baseAttack: defaultData.baseAttack,
+                baseDefense: defaultData.baseDefense,
+                equipWeapon: defaultData.equipWeapon,
+                equipArmor: defaultData.equipArmor,
+                equipAccessory: defaultData.equipAccessory,
+                backpack: defaultData.backpack,
+                killCount: 0,
+                totalIncome: defaultData.lingShi,
+                continuousSign: 0,
+                lastSignDate: null,
+                position: defaultData.position
+            }
+        };
+        await apiRequest(`/databases/${DATABASE_ID}/collections/${COLLECTIONS.USERS}/documents`, {
+            method: 'POST',
+            body: JSON.stringify(playerDoc)
+        });
+    }
+
+    async function loadPlayerData(userId) {
+        try {
+            const doc = await apiRequest(`/databases/${DATABASE_ID}/collections/${COLLECTIONS.USERS}/documents/${userId}`);
+            if (doc.backpack && typeof doc.backpack === 'string') {
+                try { doc.backpack = JSON.parse(doc.backpack); } catch { doc.backpack = {}; }
+            }
+            playerData = doc;
+            currentUserId = userId;
+        } catch (error) {
+            if (error.code === 404) {
+                await createPlayerData(userId, '沈曦炎');
+                return loadPlayerData(userId);
+            } else throw error;
+        }
+        updateHeaderUI();
+        return playerData;
+    }
+
+    async function savePlayerData(updatedFields = {}) {
+        if (!currentUserId || !playerData) return;
+        Object.assign(playerData, updatedFields);
+        const dataToSave = { ...playerData };
+        if (dataToSave.backpack && typeof dataToSave.backpack === 'object') {
+            dataToSave.backpack = JSON.stringify(dataToSave.backpack);
+        }
+        await apiRequest(`/databases/${DATABASE_ID}/collections/${COLLECTIONS.USERS}/documents/${currentUserId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ data: dataToSave })
+        });
+        updateHeaderUI();
+    }
+
+    // ---------- 面板切换 ----------
+    function showGameScreen() {
+        authScreen.classList.add('hidden');
+        gameScreen.classList.remove('hidden');
+        showPanel('map');
+    }
+
+    async function showPanel(panelName) {
+        let content = '';
+        switch (panelName) {
+            case 'map': content = await renderMapPanel(); break;
+            case 'state': content = await renderStatePanel(); break;
+            case 'backpack': content = await renderBackpackPanel(); break;
+            case 'equip': content = await renderEquipmentPanel(); break;
+            case 'shop': content = await renderShopPanel(); break;
+            case 'crystal': content = await renderCrystalShopPanel(); break;
+            case 'sign': content = await renderSignPanel(); break;
+            case 'manage': content = renderManagePanel(); break;
+            default: content = await renderMapPanel();
+        }
+        contentPanel.innerHTML = content;
+        await bindPanelEvents(panelName);
+    }
+
+    // ---------- 地图模块 ----------
+    async function renderMapPanel() {
+        const pos = playerData?.position || 'xinshoucun';
+        try {
+            currentMapData = await apiRequest(`/databases/${DATABASE_ID}/collections/${COLLECTIONS.MAPS}/documents/${pos}`);
+        } catch (error) {
+            currentMapData = {
+                name: '未知地域',
+                description: '这里似乎还没有被探索。',
+                monsterList: JSON.stringify([]),
+                npcList: JSON.stringify([]),
+                forward: null, back: null, left: null, right: null,
+                buildings: JSON.stringify([])
+            };
+        }
+        const map = currentMapData;
+        const monsterList = JSON.parse(map.monsterList || '[]');
+        const npcList = JSON.parse(map.npcList || '[]');
+        const buildings = JSON.parse(map.buildings || '[]');
+        
+        let monsterHtml = monsterList.map(m => `<span class="monster-tag" data-monster="${m}">${m}</span>`).join(' ');
+        let npcHtml = npcList.map(n => `<span class="npc-tag" data-npc="${n}">${n}</span>`).join(' ');
+        
+        return `
+            <div class="map-card">
+                <div class="location-name">${map.name}</div>
+                <div class="location-desc">${map.description}</div>
+                ${buildings.length ? `<div class="buildings">建筑: ${buildings.join(', ')}</div>` : ''}
+                <div class="monster-npc">
+                    ${monsterHtml}
+                    ${npcHtml}
+                </div>
+            </div>
+            <div class="direction-panel">
+                <button class="dir-btn" id="moveForward">前</button>
+                <button class="dir-btn" id="moveLeft">左</button>
+                <button class="dir-btn" id="moveBack">后</button>
+                <button class="dir-btn" id="moveRight">右</button>
+            </div>
+            <button class="btn" id="exploreBtn">探索（打怪）</button>
+            <button class="btn" id="talkNpcBtn">对话 NPC</button>
+        `;
+    }
+
+    async function moveTo(dest) {
+        if (!dest) { alert('无路可走'); return; }
+        playerData.position = dest;
+        await savePlayerData({ position: dest });
+        showPanel('map');
+    }
+
+    async function fightMonster(monsterId) {
+        let monster;
+        try {
+            monster = await apiRequest(`/databases/${DATABASE_ID}/collections/${COLLECTIONS.MONSTERS}/documents/${monsterId}`);
+        } catch (error) {
+            alert(`怪物 ${monsterId} 不存在`);
+            return;
+        }
+        
+        if (playerData.hp <= 0) { alert('你已经没有力气了'); return; }
+        
+        const playerAttack = await calcTotalAttack();
+        const playerDefense = await calcTotalDefense();
+        
+        const playerDamage = Math.max(1, playerAttack - monster.defense);
+        const monsterDamage = Math.max(1, monster.attack - playerDefense);
+        
+        let monsterHp = monster.hp;
+        monsterHp -= playerDamage;
+        
+        if (monsterHp <= 0) {
+            const expReward = monster.expReward;
+            const lingShiReward = monster.lingShiReward;
+            const dropItems = JSON.parse(monster.dropItems || '[]');
+            
+            const weaponStats = await getEquipmentStats(playerData.equipWeapon);
+            const finalExp = Math.floor(expReward * (weaponStats.expMultiplier || 1));
+            const finalLingShi = Math.floor(lingShiReward * (weaponStats.currencyMultiplier || 1));
+            
+            playerData.exp += finalExp;
+            playerData.lingShi += finalLingShi;
+            playerData.killCount += 1;
+            playerData.totalIncome += finalLingShi;
+            
+            dropItems.forEach(item => {
+                if (!playerData.backpack[item.name]) playerData.backpack[item.name] = 0;
+                playerData.backpack[item.name] += item.count;
+            });
+            
+            while (playerData.exp >= playerData.expToNext) {
+                playerData.level += 1;
+                playerData.exp -= playerData.expToNext;
+                playerData.expToNext = Math.floor(playerData.expToNext * 1.2);
+                playerData.maxHp += 20;
+                playerData.hp = playerData.maxHp;
+            }
+            
+            await savePlayerData();
+            alert(`击败 ${monster.name}，获得 ${finalExp} 修为、${finalLingShi} 灵石${dropItems.length ? '，并获得物品' : ''}`);
+        } else {
+            playerData.hp -= monsterDamage;
+            if (playerData.hp < 0) playerData.hp = 0;
+            await savePlayerData();
+            alert(`你对 ${monster.name} 造成 ${playerDamage} 伤害，怪物剩余 ${monsterHp} 生命。\n怪物对你造成 ${monsterDamage} 伤害，你剩余 ${playerData.hp}/${playerData.maxHp} 生命。`);
+        }
+        
+        if (playerData.hp <= 0) alert('你已死亡，请使用回血丹');
+    }
+
+    async function explore() {
+        if (!currentMapData) return;
+        const monsterList = JSON.parse(currentMapData.monsterList || '[]');
+        if (monsterList.length === 0) { alert('这里没有怪物'); return; }
+        const randomMonster = monsterList[Math.floor(Math.random() * monsterList.length)];
+        await fightMonster(randomMonster);
+    }
+
+    function talkNpc() {
+        alert('你与 NPC 交谈，但什么也没发生。');
+    }
+
+    // ---------- 状态面板 ----------
+    async function renderStatePanel() {
+        const totalAtk = await calcTotalAttack();
+        const totalDef = await calcTotalDefense();
+        const totalMaxHp = await calcTotalHp();
+        return `
+            <h3 style="text-align:center">角色状态</h3>
+            <div class="item-row"><span>生命值</span> ${playerData.hp}/${totalMaxHp}</div>
+            <div class="item-row"><span>总攻击力</span> ${totalAtk} (基础${playerData.baseAttack} + 装备${totalAtk - playerData.baseAttack})</div>
+            <div class="item-row"><span>总防御力</span> ${totalDef} (基础${playerData.baseDefense} + 装备${totalDef - playerData.baseDefense})</div>
+            <div class="item-row"><span>修为</span> Lv.${playerData.level} ${playerData.exp}/${playerData.expToNext}</div>
+            <div class="item-row"><span>灵石</span> ${playerData.lingShi}</div>
+            <div class="item-row"><span>击杀数</span> ${playerData.killCount}</div>
+            <div class="item-row"><span>总收入</span> ${playerData.totalIncome}</div>
+            <div class="item-row"><span>连续签到</span> ${playerData.continuousSign}天</div>
+            <div class="item-row"><span>当前位置</span> ${playerData.position}</div>
+            <div class="item-row"><span>背包物品</span> ${Object.keys(playerData.backpack).length}种</div>
+        `;
+    }
+
+    // ---------- 背包模块 ----------
+    async function renderBackpackPanel() {
+        const items = playerData.backpack || {};
+        let html = '<h3>背包</h3>';
+        for (let [name, count] of Object.entries(items)) {
+            if (count <= 0) continue;
+            html += `
+                <div class="item-row">
+                    <span>${name} x${count}</span>
+                    <button class="use-btn" data-item="${name}">使用</button>
+                </div>
+            `;
+        }
+        if (Object.keys(items).length === 0) html += '<p>空空如也</p>';
+        return html;
+    }
+
+    async function useItem(item) {
+        if (item === '回血丹') {
+            playerData.hp = Math.min(playerData.maxHp, playerData.hp + 50);
+            playerData.backpack[item] -= 1;
+            if (playerData.backpack[item] === 0) delete playerData.backpack[item];
+            await savePlayerData();
+            alert('使用回血丹，生命+50');
+        } else if (item === '聚灵丹') {
+            playerData.exp += 100;
+            playerData.backpack[item] -= 1;
+            if (playerData.backpack[item] === 0) delete playerData.backpack[item];
+            await savePlayerData();
+            alert('使用聚灵丹，修为+100');
+        } else {
+            alert('该物品无法直接使用');
+        }
+        showPanel('backpack');
+    }
+
+    // ---------- 装备模块 ----------
+    async function renderEquipmentPanel() {
+        return `
+            <h3>装备</h3>
+            <div class="item-row">
+                <span>武器: ${playerData.equipWeapon || '无'}</span>
+                <button class="change-btn" data-type="weapon">更换</button>
+            </div>
+            <div class="item-row">
+                <span>防具: ${playerData.equipArmor || '无'}</span>
+                <button class="change-btn" data-type="armor">更换</button>
+            </div>
+            <div class="item-row">
+                <span>饰品: ${playerData.equipAccessory || '无'}</span>
+                <button class="change-btn" data-type="accessory">更换</button>
+            </div>
+            <div id="equipList" style="display:none; margin-top:10px;">
+                <h4>可选装备</h4>
+                <div id="availableEquips"></div>
+            </div>
+        `;
+    }
+
+    async function showEquipList(type) {
+        try {
+            const response = await apiRequest(`/databases/${DATABASE_ID}/collections/${COLLECTIONS.EQUIPMENT}/documents?queries=${encodeURIComponent(JSON.stringify({ method: 'equal', attribute: 'type', values: [type] }))}`);
+            const equipments = response.documents || [];
+            const listDiv = document.getElementById('availableEquips');
+            let html = '';
+            equipments.forEach(eq => {
+                html += `
+                    <div class="item-row">
+                        <span>${eq.name} (攻击+${eq.attack} 防御+${eq.defense})</span>
+                        <button class="equip-select" data-type="${type}" data-name="${eq.$id}">穿戴</button>
+                    </div>
+                `;
+            });
+            listDiv.innerHTML = html;
+            document.getElementById('equipList').style.display = 'block';
+        } catch (error) {
+            alert('获取装备列表失败');
+        }
+    }
+
+    async function equip(type, equipId) {
+        if (type === 'weapon') playerData.equipWeapon = equipId;
+        else if (type === 'armor') playerData.equipArmor = equipId;
+        else if (type === 'accessory') playerData.equipAccessory = equipId;
+        await savePlayerData();
+        alert(`已装备 ${equipId}`);
+        document.getElementById('equipList').style.display = 'none';
+        showPanel('equip');
+    }
+
+    // ---------- 商店模块 ----------
+    async function renderShopPanel() {
+        let items = [];
+        try {
+            const response = await apiRequest(`/databases/${DATABASE_ID}/collections/${COLLECTIONS.SHOP}/documents`);
+            items = response.documents || [];
+        } catch (error) {
+            items = [];
+        }
+        let html = `<h3>商城</h3><p>灵石: ${playerData.lingShi}</p>`;
+        items.forEach(item => {
+            let disable = (item.requireLv && playerData.level < item.requireLv) ? 'disabled' : '';
+            html += `
+                <div class="item-row">
+                    <span>${item.name}<br><small>${item.desc}</small><br>价格: ${item.price}灵石</span>
+                    <button class="buy-btn" data-item='${JSON.stringify(item)}' ${disable}>购买</button>
+                </div>
+            `;
+        });
+        return html;
+    }
+
+    async function buyItem(item) {
+        if (playerData.lingShi < item.price) { alert('灵石不足'); return; }
+        if (item.requireLv && playerData.level < item.requireLv) { alert('等级不足'); return; }
+        playerData.lingShi -= item.price;
+        if (!playerData.backpack[item.name]) playerData.backpack[item.name] = 0;
+        playerData.backpack[item.name] += 1;
+        await savePlayerData();
+        alert(`购买成功，获得 ${item.name}`);
+        showPanel('shop');
+    }
+
+    // ---------- 晶石商店 ----------
+    async function renderCrystalShopPanel() {
+        const crystal = 0;
+        let items = [];
+        try {
+            const response = await apiRequest(`/databases/${DATABASE_ID}/collections/${COLLECTIONS.CRYSTAL_SHOP}/documents`);
+            items = response.documents || [];
+        } catch (error) {
+            items = [];
+        }
+        let html = `<h3>晶石商城</h3><p>晶石: ${crystal}</p>`;
+        items.forEach(item => {
+            html += `
+                <div class="item-row">
+                    <span>${item.name}<br><small>${item.desc}</small><br>价格: ${item.crystalPrice}晶石</span>
+                    <button class="buy-btn" data-item='${JSON.stringify(item)}' ${crystal < item.crystalPrice ? 'disabled' : ''}>购买</button>
+                </div>
+            `;
+        });
+        return html;
+    }
+
+    function buyCrystalItem() {
+        alert('晶石系统暂未开放');
+    }
+
+    // ---------- 签到模块 ----------
+    const rewards = [
+        { day: 1, lingShi: 50, items: { '回血丹': 2 } },
+        { day: 2, lingShi: 80, items: { '聚灵丹': 1 } },
+        { day: 3, lingShi: 120, items: { '大回血丹': 2 } },
+        { day: 4, lingShi: 150, items: { '攻击符': 2 } },
+        { day: 5, lingShi: 200, items: { '筑基丹': 1 } },
+        { day: 6, lingShi: 300, items: { '防御符': 3 } },
+        { day: 7, lingShi: 500, items: { '筑基丹': 3 } }
+    ];
+
+    async function renderSignPanel() {
+        const continuous = playerData.continuousSign || 0;
+        let html = `<h3>每日签到</h3><p>连续签到：${continuous}天</p>`;
+        rewards.forEach((r, idx) => {
+            let day = idx + 1;
+            let status = (day === continuous + 1) ? '（可签到）' : (day <= continuous ? '（已完成）' : '（未解锁）');
+            let itemDesc = Object.entries(r.items).map(([k,v]) => `${k}x${v}`).join(' + ');
+            html += `<div class="item-row">第${day}天: ${r.lingShi}灵石 + ${itemDesc} ${status}</div>`;
+        });
+        html += `<button class="btn" id="signBtn">签到</button>`;
+        return html;
+    }
+
+    async function sign() {
+        const today = new Date().toDateString();
+        if (playerData.lastSignDate === today) {
+            alert('今天已经签过到了');
+            return;
+        }
+        let continuous = playerData.continuousSign || 0;
+        if (playerData.lastSignDate) {
+            const last = new Date(playerData.lastSignDate);
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            if (last.toDateString() !== yesterday.toDateString()) continuous = 0;
+        }
+        const nextDay = continuous + 1;
+        const rewardIdx = (nextDay - 1) % 7;
+        const reward = rewards[rewardIdx];
+        playerData.lingShi += reward.lingShi;
+        for (let [item, count] of Object.entries(reward.items)) {
+            if (!playerData

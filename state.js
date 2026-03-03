@@ -1,18 +1,22 @@
-// ==================== 全局状态 ====================
-let player = null;
-let inventory = [];
-let currentTab = 'login';
-let gameLog = [];
+import { getPlayerData, calcTotalAttack, calcTotalDefense, calcTotalHp } from './gameCore.js';
 
-let dailyCheckin = { last: null, days: 0 };
-let quests = [];
-let friends = [];
-let mails = [];
-let guild = null;
-let gachaHistory = [];
-let pets = [];
-let marketplace = [];
-let dailyTasks = [];
-let activeEvent = null;
-
-let userId = null; // 当前登录用户 ID，从 Appwrite 获取
+export async function renderStatePanel() {
+    const data = getPlayerData();
+    const totalAtk = await calcTotalAttack();
+    const totalDef = await calcTotalDefense();
+    const totalMaxHp = await calcTotalHp();
+    
+    return `
+        <h3 style="text-align:center">角色状态</h3>
+        <div class="item-row"><span>生命值</span> ${data.hp}/${totalMaxHp}</div>
+        <div class="item-row"><span>总攻击力</span> ${totalAtk} (基础${data.baseAttack} + 装备${totalAtk - data.baseAttack})</div>
+        <div class="item-row"><span>总防御力</span> ${totalDef} (基础${data.baseDefense} + 装备${totalDef - data.baseDefense})</div>
+        <div class="item-row"><span>修为</span> Lv.${data.level} ${data.exp}/${data.expToNext}</div>
+        <div class="item-row"><span>灵石</span> ${data.lingShi}</div>
+        <div class="item-row"><span>击杀数</span> ${data.killCount}</div>
+        <div class="item-row"><span>总收入</span> ${data.totalIncome}</div>
+        <div class="item-row"><span>连续签到</span> ${data.continuousSign}天</div>
+        <div class="item-row"><span>当前位置</span> ${data.position}</div>
+        <div class="item-row"><span>背包物品</span> ${Object.keys(data.backpack).length}种</div>
+    `;
+}
