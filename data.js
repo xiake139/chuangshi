@@ -15,9 +15,13 @@ async function loadGameData() {
             userId
         );
         const data = document;
-        player = data.player;
-        inventory = data.inventory || [];
-        const ex = data.extra || {};
+
+        // 从 JSON 字符串解析数据（因为存储时使用了 JSON.stringify）
+        player = JSON.parse(data.player || '{}');
+        inventory = JSON.parse(data.inventory || '[]');
+        const ex = JSON.parse(data.extra || '{}');
+
+        // 从 extra 对象中恢复各个扩展状态
         dailyCheckin = ex.dailyCheckin || { last: null, days: 0 };
         quests = ex.quests || [];
         friends = ex.friends || [];
@@ -82,10 +86,11 @@ async function loadGameData() {
 async function saveCharacter() {
     if (!player) return;
 
+    // 将要存储的数据进行 JSON 序列化
     const data = {
-        player,
-        inventory,
-        extra: {
+        player: JSON.stringify(player),
+        inventory: JSON.stringify(inventory),
+        extra: JSON.stringify({
             dailyCheckin,
             quests,
             friends,
@@ -96,7 +101,7 @@ async function saveCharacter() {
             marketplace,
             dailyTasks,
             activeEvent,
-        }
+        })
     };
 
     try {
