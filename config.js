@@ -18,3 +18,6 @@ window.appwriteAccount = account;
 window.appwriteDatabases = databases;
 window.APPWRITE_DATABASE_ID = APPWRITE_DATABASE_ID;
 window.APPWRITE_COLLECTION_ID = APPWRITE_COLLECTION_ID;
+
+// 可选：在控制台验证是否挂载成功（打开浏览器开发者工具查看）
+console.log('✅ appwriteAccount 已定义:', window.appwriteAccount);
