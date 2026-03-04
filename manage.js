@@ -1,3 +1,5 @@
+import { getPlayerData, savePlayerData } from './gameCore.js';
+
 export function renderManagePanel() {
     return `
         <h3>管理面板</h3>
@@ -9,7 +11,6 @@ export function renderManagePanel() {
 export async function bindEvents() {
     document.getElementById('resetDataBtn')?.addEventListener('click', async () => {
         if (confirm('确定重置所有数据？')) {
-            const { getPlayerData, savePlayerData } = await import('./gameCore.js');
             const data = getPlayerData();
             data.level = 1;
             data.lingShi = 100;

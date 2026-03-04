@@ -1,4 +1,4 @@
-import { databases, DATABASE_ID, USERS_COLLECTION_ID, PLAYER_DEFAULT_COLLECTION_ID, EQUIPMENT_COLLECTION_ID } from './appwrite.js';
+import { apiRequest, DATABASE_ID, USERS_COLLECTION_ID, PLAYER_DEFAULT_COLLECTION_ID, EQUIPMENT_COLLECTION_ID } from './api.js';
 import { updateHeaderUI } from './ui.js';
 
 let currentUserId = null;
@@ -17,29 +17,64 @@ export function getPlayerData() {
     return playerData;
 }
 
-export async function getEquipmentStats(equipName) {
-    if (!equipName || equipName === '无') return { attack: 0, defense: 0, hp: 0, expMultiplier: 1, currencyMultiplier: 1 };
-    if (equipmentCache[equipName]) return equipmentCache[equipName];
+export function setPlayerData(data) {
+    playerData = data;
+}
+
+// 获取装备属性（已缓存）
+export async function getEquipmentStats(equipId) {
+    if (!equipId || equipId === '无') return { attack: 0, defense: 0, hp: 0, expMultiplier: 1, currencyMultiplier: 1 };
+    if (equipmentCache[equipId]) return equipmentCache[equipId];
     try {
-        const doc = await databases.getDocument(DATABASE_ID, EQUIPMENT_COLLECTION_ID, equipName);
-        equipmentCache[equipName] = {
+        const doc = await apiRequest(`/databases/${DATABASE_ID}/collections/${EQUIPMENT_COLLECTION_ID}/documents/${equipId}`);
+        equipmentCache[equipId] = {
             attack: doc.attack || 0,
             defense: doc.defense || 0,
             hp: doc.hp || 0,
             expMultiplier: doc.expMultiplier || 1,
             currencyMultiplier: doc.currencyMultiplier || 1
         };
-        return equipmentCache[equipName];
+        return equipmentCache[equipId];
     } catch (error) {
-        console.warn(`装备 ${equipName} 不存在，返回默认值`);
+        console.warn(`装备 ${equipId} 不存在，返回默认值`);
         return { attack: 0, defense: 0, hp: 0, expMultiplier: 1, currencyMultiplier: 1 };
     }
 }
 
+// 计算装备总生命加成
+async function calcEquipmentHpBonus() {
+    let hpBonus = 0;
+    if (playerData.equipWeapon && playerData.equipWeapon !== '无') {
+        const weapon = await getEquipmentStats(playerData.equipWeapon);
+        hpBonus += weapon.hp || 0;
+    }
+    if (playerData.equipArmor && playerData.equipArmor !== '无') {
+        const armor = await getEquipmentStats(playerData.equipArmor);
+        hpBonus += armor.hp || 0;
+    }
+    if (playerData.equipAccessory && playerData.equipAccessory !== '无') {
+        const accessory = await getEquipmentStats(playerData.equipAccessory);
+        hpBonus += accessory.hp || 0;
+    }
+    return hpBonus;
+}
+
+// 重新计算总最大生命值（不保存）
+export async function recalcTotalMaxHp() {
+    if (!playerData) return;
+    const baseMaxHp = playerData.baseMaxHp || playerData.maxHp || 300;
+    const equipBonus = await calcEquipmentHpBonus();
+    const totalMaxHp = baseMaxHp + equipBonus;
+    if (playerData.hp > totalMaxHp) playerData.hp = totalMaxHp;
+    playerData.maxHp = totalMaxHp;
+    if (!playerData.baseMaxHp) playerData.baseMaxHp = baseMaxHp;
+}
+
+// 创建新玩家数据
 export async function createPlayerData(userId, roleName) {
     let defaultData;
     try {
-        defaultData = await databases.getDocument(DATABASE_ID, PLAYER_DEFAULT_COLLECTION_ID, 'default');
+        defaultData = await apiRequest(`/databases/${DATABASE_ID}/collections/${PLAYER_DEFAULT_COLLECTION_ID}/documents/default`);
     } catch (error) {
         console.error('无法获取默认玩家配置，使用硬编码', error);
         defaultData = {
@@ -49,12 +84,29 @@ export async function createPlayerData(userId, roleName) {
             position: 'xinshoucun'
         };
     }
+    const baseMaxHp = defaultData.maxHp || 300;
+    // 计算装备加成
+    let equipBonus = 0;
+    if (defaultData.equipWeapon && defaultData.equipWeapon !== '无') {
+        const weapon = await getEquipmentStats(defaultData.equipWeapon);
+        equipBonus += weapon.hp || 0;
+    }
+    if (defaultData.equipArmor && defaultData.equipArmor !== '无') {
+        const armor = await getEquipmentStats(defaultData.equipArmor);
+        equipBonus += armor.hp || 0;
+    }
+    if (defaultData.equipAccessory && defaultData.equipAccessory !== '无') {
+        const accessory = await getEquipmentStats(defaultData.equipAccessory);
+        equipBonus += accessory.hp || 0;
+    }
+    const totalMaxHp = baseMaxHp + equipBonus;
     const playerDoc = {
         name: roleName,
         level: defaultData.level,
         lingShi: defaultData.lingShi,
         hp: defaultData.hp,
-        maxHp: defaultData.maxHp,
+        maxHp: totalMaxHp,
+        baseMaxHp: baseMaxHp,
         exp: defaultData.exp,
         expToNext: defaultData.expToNext,
         baseAttack: defaultData.baseAttack,
@@ -67,28 +119,43 @@ export async function createPlayerData(userId, roleName) {
         totalIncome: defaultData.lingShi,
         continuousSign: 0,
         lastSignDate: null,
-        position: defaultData.position
+        position: defaultData.position,
+        battleMonsterId: null,
+        battleMonsterHp: null
     };
-    await databases.createDocument(DATABASE_ID, USERS_COLLECTION_ID, userId, playerDoc);
+    await apiRequest(`/databases/${DATABASE_ID}/collections/${USERS_COLLECTION_ID}/documents`, {
+        method: 'POST',
+        body: JSON.stringify({ documentId: userId, data: playerDoc })
+    });
+    return playerDoc;
 }
 
+// 加载玩家数据
 export async function loadPlayerData(userId) {
     try {
-        const doc = await databases.getDocument(DATABASE_ID, USERS_COLLECTION_ID, userId);
+        const doc = await apiRequest(`/databases/${DATABASE_ID}/collections/${USERS_COLLECTION_ID}/documents/${userId}`);
         if (doc.backpack && typeof doc.backpack === 'string') {
             try { doc.backpack = JSON.parse(doc.backpack); } catch { doc.backpack = {}; }
         }
-        playerData = doc;
+        if (doc.baseMaxHp === undefined || doc.baseMaxHp === null) {
+            doc.baseMaxHp = doc.maxHp || 300;
+            playerData = doc;
+            await recalcTotalMaxHp(); // 重新计算并更新到内存
+        } else {
+            playerData = doc;
+        }
     } catch (error) {
         if (error.code === 404) {
-            await createPlayerData(userId, '沈曦炎');
-            return loadPlayerData(userId);
-        } else throw error;
+            throw new Error('玩家数据不存在，请重新注册');
+        } else {
+            throw error;
+        }
     }
     updateHeaderUI();
     return playerData;
 }
 
+// 保存玩家数据（只调用一次）
 export async function savePlayerData(updatedFields = {}) {
     if (!currentUserId || !playerData) return;
     Object.assign(playerData, updatedFields);
@@ -96,10 +163,36 @@ export async function savePlayerData(updatedFields = {}) {
     if (dataToSave.backpack && typeof dataToSave.backpack === 'object') {
         dataToSave.backpack = JSON.stringify(dataToSave.backpack);
     }
-    await databases.updateDocument(DATABASE_ID, USERS_COLLECTION_ID, currentUserId, dataToSave);
+    await apiRequest(`/databases/${DATABASE_ID}/collections/${USERS_COLLECTION_ID}/documents/${currentUserId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ data: dataToSave })
+    });
     updateHeaderUI();
 }
 
+// 升级处理（只修改内存，不保存）
+export async function applyLevelUp() {
+    let changed = false;
+    while (playerData.exp >= playerData.expToNext) {
+        playerData.level += 1;
+        playerData.exp -= playerData.expToNext;
+        playerData.expToNext = Math.floor(playerData.expToNext * 1.2);
+        playerData.baseMaxHp += 20;
+        changed = true;
+    }
+    if (changed) {
+        await recalcTotalMaxHp();
+        playerData.hp = playerData.maxHp; // 升级回满血
+    }
+}
+
+// 装备变更后调用（只重新计算最大生命，不保存）
+export async function onEquipmentChanged() {
+    await recalcTotalMaxHp();
+    if (playerData.hp > playerData.maxHp) playerData.hp = playerData.maxHp;
+}
+
+// 计算总攻击（包含装备）
 export async function calcTotalAttack() {
     let base = playerData.baseAttack || 0;
     const weaponStats = await getEquipmentStats(playerData.equipWeapon);
@@ -107,6 +200,7 @@ export async function calcTotalAttack() {
     return base;
 }
 
+// 计算总防御（包含装备）
 export async function calcTotalDefense() {
     let base = playerData.baseDefense || 0;
     const armorStats = await getEquipmentStats(playerData.equipArmor);
@@ -114,9 +208,7 @@ export async function calcTotalDefense() {
     return base;
 }
 
-export async function calcTotalHp() {
-    let base = playerData.maxHp || 300;
-    const armorStats = await getEquipmentStats(playerData.equipArmor);
-    base += armorStats.hp || 0;
-    return base;
+// 获取总最大生命（直接返回playerData.maxHp）
+export function getTotalMaxHp() {
+    return playerData.maxHp;
 }

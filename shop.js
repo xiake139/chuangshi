@@ -1,12 +1,13 @@
-import { databases, DATABASE_ID, SHOP_COLLECTION_ID } from './appwrite.js';
+import { apiRequest, DATABASE_ID, SHOP_COLLECTION_ID } from './api.js';
 import { getPlayerData, savePlayerData } from './gameCore.js';
+import { showLog } from './ui.js';
 
 let shopItems = [];
 
 export async function renderShopPanel() {
     const data = getPlayerData();
     try {
-        const response = await databases.listDocuments(DATABASE_ID, SHOP_COLLECTION_ID);
+        const response = await apiRequest(`/databases/${DATABASE_ID}/collections/${SHOP_COLLECTION_ID}/documents`);
         shopItems = response.documents;
     } catch (error) {
         shopItems = [];
@@ -30,13 +31,13 @@ export async function bindEvents() {
         btn.addEventListener('click', async (e) => {
             const item = JSON.parse(e.target.dataset.item);
             const data = getPlayerData();
-            if (data.lingShi < item.price) { alert('灵石不足'); return; }
-            if (item.requireLv && data.level < item.requireLv) { alert('等级不足'); return; }
+            if (data.lingShi < item.price) { showLog('灵石不足'); return; }
+            if (item.requireLv && data.level < item.requireLv) { showLog('等级不足'); return; }
             data.lingShi -= item.price;
             if (!data.backpack[item.name]) data.backpack[item.name] = 0;
             data.backpack[item.name] += 1;
             await savePlayerData();
-            alert(`购买成功，获得 ${item.name}`);
+            showLog(`购买成功，获得 ${item.name}`);
             document.getElementById('contentPanel').innerHTML = await renderShopPanel();
             bindEvents();
         });

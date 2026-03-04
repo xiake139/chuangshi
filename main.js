@@ -1,10 +1,10 @@
-import { account } from './appwrite.js';
+import { apiRequest } from './api.js';
 import { setCurrentUserId, loadPlayerData } from './gameCore.js';
 import { showGameScreen } from './ui.js';
 
 async function checkSession() {
     try {
-        const user = await account.get();
+        const user = await apiRequest('/account');
         setCurrentUserId(user.$id);
         await loadPlayerData(user.$id);
         showGameScreen();

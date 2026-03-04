@@ -10,6 +10,14 @@ import { getPlayerData } from './gameCore.js';
 
 const contentPanel = document.getElementById('contentPanel');
 
+export function showLog(message) {
+    const logBox = document.getElementById('logBox');
+    if (logBox) {
+        logBox.innerHTML += message + '<br>';
+        logBox.scrollTop = logBox.scrollHeight;
+    }
+}
+
 export async function showPanel(panelName) {
     let content = '';
     switch (panelName) {
@@ -40,15 +48,15 @@ async function bindPanelEvents(panelName) {
     }
 }
 
-export function updateHeaderUI() {
+export async function updateHeaderUI() {
     const data = getPlayerData();
     if (!data) return;
-    document.getElementById('playerName').innerText = data.name || '沈曦炎';
+    document.getElementById('playerName').innerText = data.name || '';
     document.getElementById('playerLv').innerText = `Lv.${data.level}`;
     document.getElementById('lingShi').innerText = data.lingShi;
     document.getElementById('hpDisplay').innerHTML = `${data.hp}/${data.maxHp}`;
     document.getElementById('cultivationVal').innerText = `${data.exp}/${data.expToNext}`;
-    document.getElementById('currentLocTag').innerText = data.position || '新手村';
+    document.getElementById('currentLocTag').innerText = data.position || 'xinshoucun';
 }
 
 document.querySelectorAll('.nav-btn').forEach(btn => {

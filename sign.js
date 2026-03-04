@@ -1,4 +1,5 @@
 import { getPlayerData, savePlayerData } from './gameCore.js';
+import { showLog } from './ui.js';
 
 const rewards = [
     { day: 1, lingShi: 50, items: { '回血丹': 2 } },
@@ -29,7 +30,7 @@ export async function bindEvents() {
         const data = getPlayerData();
         const today = new Date().toDateString();
         if (data.lastSignDate === today) {
-            alert('今天已经签过到了');
+            showLog('今天已经签过到了');
             return;
         }
         let continuous = data.continuousSign || 0;
@@ -50,7 +51,7 @@ export async function bindEvents() {
         data.continuousSign = (continuous % 7) + 1;
         data.lastSignDate = today;
         await savePlayerData();
-        alert(`签到成功！获得${reward.lingShi}灵石及奖励。`);
+        showLog(`签到成功！获得${reward.lingShi}灵石及奖励。`);
         document.getElementById('contentPanel').innerHTML = await renderSignPanel();
         bindEvents();
     });

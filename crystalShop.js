@@ -1,13 +1,14 @@
-import { databases, DATABASE_ID, CRYSTAL_SHOP_COLLECTION_ID } from './appwrite.js';
-import { getPlayerData, savePlayerData } from './gameCore.js';
+import { apiRequest, DATABASE_ID, CRYSTAL_SHOP_COLLECTION_ID } from './api.js';
+import { getPlayerData } from './gameCore.js';
+import { showLog } from './ui.js';
 
 export async function renderCrystalShopPanel() {
     const data = getPlayerData();
-    const crystal = 0; // 晶石暂未实现
+    const crystal = 0;
     
     let items = [];
     try {
-        const response = await databases.listDocuments(DATABASE_ID, CRYSTAL_SHOP_COLLECTION_ID);
+        const response = await apiRequest(`/databases/${DATABASE_ID}/collections/${CRYSTAL_SHOP_COLLECTION_ID}/documents`);
         items = response.documents;
     } catch (error) {
         items = [];
@@ -27,6 +28,6 @@ export async function renderCrystalShopPanel() {
 
 export async function bindEvents() {
     document.querySelectorAll('.buy-btn').forEach(btn => {
-        btn.addEventListener('click', () => alert('晶石系统暂未开放'));
+        btn.addEventListener('click', () => showLog('晶石系统暂未开放'));
     });
 }

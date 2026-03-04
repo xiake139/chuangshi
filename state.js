@@ -1,14 +1,13 @@
-import { getPlayerData, calcTotalAttack, calcTotalDefense, calcTotalHp } from './gameCore.js';
+import { getPlayerData, calcTotalAttack, calcTotalDefense } from './gameCore.js';
 
 export async function renderStatePanel() {
     const data = getPlayerData();
     const totalAtk = await calcTotalAttack();
     const totalDef = await calcTotalDefense();
-    const totalMaxHp = await calcTotalHp();
     
     return `
         <h3 style="text-align:center">角色状态</h3>
-        <div class="item-row"><span>生命值</span> ${data.hp}/${totalMaxHp}</div>
+        <div class="item-row"><span>生命值</span> ${data.hp}/${data.maxHp}</div>
         <div class="item-row"><span>总攻击力</span> ${totalAtk} (基础${data.baseAttack} + 装备${totalAtk - data.baseAttack})</div>
         <div class="item-row"><span>总防御力</span> ${totalDef} (基础${data.baseDefense} + 装备${totalDef - data.baseDefense})</div>
         <div class="item-row"><span>修为</span> Lv.${data.level} ${data.exp}/${data.expToNext}</div>
