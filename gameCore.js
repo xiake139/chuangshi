@@ -161,33 +161,38 @@ export async function savePlayerData(updatedFields = {}) {
         method: 'PATCH',
         body: JSON.stringify({ data: dataToSave })
     });
-    updateHeaderUI(); // 确保头部刷新
+    updateHeaderUI();
 }
 
-// 升级处理
+// 升级处理（每升一级，基础攻击和防御增加 当前等级 * 2 * 当前等级）
 export async function applyLevelUp() {
     let changed = false;
     while (playerData.exp >= playerData.expToNext) {
         playerData.level += 1;
         playerData.exp -= playerData.expToNext;
         playerData.expToNext = Math.floor(playerData.expToNext * 1.2);
-        playerData.baseMaxHp += 20;
+
+        // 新增攻击防御：当前等级 * 2 * 当前等级
+        const increment = playerData.level * 2 * playerData.level;
+        playerData.baseAttack += increment;
+        playerData.baseDefense += increment;
+
+        playerData.baseMaxHp += 20; // 生命成长保持不变
         changed = true;
     }
     if (changed) {
         await recalcTotalMaxHp();
-        playerData.hp = playerData.maxHp;
+        playerData.hp = playerData.maxHp; // 升级回满血
     }
 }
 
-// 装备变更后调用（重新计算最大生命并保存）
+// 装备变更后调用（重新计算最大生命）
 export async function onEquipmentChanged() {
     await recalcTotalMaxHp();
     if (playerData.hp > playerData.maxHp) playerData.hp = playerData.maxHp;
-    // 注意：这里不自动保存，由调用者负责保存
 }
 
-// 计算总攻击
+// 计算总攻击（基础+装备）
 export async function calcTotalAttack() {
     let base = playerData.baseAttack || 0;
     const weaponStats = await getEquipmentStats(playerData.equipWeapon);
@@ -195,7 +200,7 @@ export async function calcTotalAttack() {
     return base;
 }
 
-// 计算总防御
+// 计算总防御（基础+装备）
 export async function calcTotalDefense() {
     let base = playerData.baseDefense || 0;
     const armorStats = await getEquipmentStats(playerData.equipArmor);
