@@ -1,5 +1,5 @@
 import { apiRequest, DATABASE_ID, EQUIPMENT_COLLECTION_ID } from './api.js';
-import { getPlayerData, onEquipmentChanged } from './gameCore.js';
+import { getPlayerData, onEquipmentChanged, savePlayerData } from './gameCore.js';
 import { showLog } from './ui.js';
 
 let allEquipment = [];
@@ -95,13 +95,20 @@ export async function bindEvents() {
                 return;
             }
 
+            // 更新玩家装备字段
             if (equipType === 'weapon') data.equipWeapon = equipId;
             else if (equipType === 'armor') data.equipArmor = equipId;
             else if (equipType === 'accessory') data.equipAccessory = equipId;
 
-            // 调用装备变更处理
+            // 重新计算最大生命值（内存中）
             await onEquipmentChanged();
+
+            // 保存到数据库（会触发 updateHeaderUI）
+            await savePlayerData();
+
             showLog(`已装备 ${eq.name}`);
+
+            // 重新渲染装备面板
             document.getElementById('contentPanel').innerHTML = await renderEquipmentPanel();
             bindEvents();
         });

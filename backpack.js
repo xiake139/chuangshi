@@ -1,11 +1,14 @@
-import { apiRequest, DATABASE_ID, SHOP_COLLECTION_ID } from './api.js';
+import { apiRequest, DATABASE_ID, SHOP_COLLECTION_ID, EQUIPMENT_COLLECTION_ID } from './api.js';
 import { getPlayerData, savePlayerData } from './gameCore.js';
 import { showLog } from './ui.js';
 
 let itemCache = {};
 
+// 先从 shop 集合获取，若失败则从 equipment 集合获取（装备）
 async function getItemInfo(itemName) {
     if (itemCache[itemName]) return itemCache[itemName];
+
+    // 尝试从 shop 集合获取
     try {
         const response = await apiRequest(`/databases/${DATABASE_ID}/collections/${SHOP_COLLECTION_ID}/documents`);
         const items = response.documents;
@@ -15,11 +18,30 @@ async function getItemInfo(itemName) {
                 return item;
             }
         }
-        return null;
     } catch (error) {
-        console.error('获取物品信息失败', error);
-        return null;
+        console.warn('获取商店物品失败', error);
     }
+
+    // 如果 shop 中没有，尝试从 equipment 集合获取（可能是装备）
+    try {
+        const response = await apiRequest(`/databases/${DATABASE_ID}/collections/${EQUIPMENT_COLLECTION_ID}/documents`);
+        const equipmentList = response.documents;
+        for (let eq of equipmentList) {
+            if (eq.name === itemName) {
+                // 构造一个简易物品对象，至少包含 type
+                const fakeItem = {
+                    name: eq.name,
+                    type: eq.type
+                };
+                itemCache[itemName] = fakeItem;
+                return fakeItem;
+            }
+        }
+    } catch (error) {
+        console.warn('获取装备信息失败', error);
+    }
+
+    return null;
 }
 
 export async function renderBackpackPanel() {
@@ -51,13 +73,14 @@ export async function bindEvents() {
             const itemName = e.target.dataset.item;
             const data = getPlayerData();
             if (!data.backpack[itemName] || data.backpack[itemName] <= 0) return;
-            
+
             const itemInfo = await getItemInfo(itemName);
             if (!itemInfo) {
                 showLog(`物品 ${itemName} 信息不存在`);
                 return;
             }
 
+            // 如果是装备，提示到装备面板穿戴
             if (itemInfo.type === 'weapon' || itemInfo.type === 'armor' || itemInfo.type === 'accessory') {
                 showLog('请到装备面板穿戴');
                 return;
@@ -90,17 +113,14 @@ export async function bindEvents() {
                     data.exp += effect.exp;
                     data.backpack[itemName] -= 1;
                     if (data.backpack[itemName] === 0) delete data.backpack[itemName];
-                    // 升级检查由 levelUp 统一处理，但这里暂不处理，因为可能立即升级
-                    // 简单处理：直接增加exp，升级逻辑在后续战斗中自动触发，或手动调用levelUp
-                    // 为了简化，我们在这里也检查升级
+                    // 升级检查
                     while (data.exp >= data.expToNext) {
                         data.level += 1;
                         data.exp -= data.expToNext;
                         data.expToNext = Math.floor(data.expToNext * 1.2);
                         data.baseMaxHp += 20;
-                        // 重新计算最大生命（需要装备加成，但这里不好调用calcEquipmentHpBonus，先简单处理）
-                        // 建议调用 levelUp 函数，但避免循环依赖，我们简单处理
-                        // 实际项目中应调用 levelUp，这里暂不处理，升级在战斗中触发
+                        data.maxHp = data.baseMaxHp; // 简化，未考虑装备，但升级时无装备
+                        data.hp = data.maxHp;
                     }
                     await savePlayerData();
                     showLog(`使用 ${itemName}，修为 +${effect.exp}`);
@@ -110,7 +130,8 @@ export async function bindEvents() {
             } else {
                 showLog('该物品无法直接使用');
             }
-            
+
+            // 重新渲染背包面板
             document.getElementById('contentPanel').innerHTML = await renderBackpackPanel();
             bindEvents();
         });

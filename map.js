@@ -3,8 +3,9 @@ import { getPlayerData, savePlayerData, calcTotalAttack, calcTotalDefense, getEq
 import { showPanel, showLog } from './ui.js';
 
 let currentMapData = null;
-let monsterNameMap = {};      // ID -> 中文名
-let monsterBaseMap = {};      // ID -> 怪物基础数据
+let monsterNameMap = {};
+let monsterBaseMap = {};
+let mapNameCache = {}; // 地图名称缓存
 const npcNameMap = { 'cunzhang': '村长' };
 
 const positionMap = {
@@ -15,7 +16,7 @@ const positionMap = {
     '沙滩': 'shatan'
 };
 
-// 获取怪物基础数据（带缓存）
+// 获取怪物基础数据
 async function getMonsterBase(monsterId) {
     if (monsterBaseMap[monsterId]) return monsterBaseMap[monsterId];
     try {
@@ -25,6 +26,20 @@ async function getMonsterBase(monsterId) {
         return monster;
     } catch (error) {
         console.warn(`获取怪物 ${monsterId} 失败`, error);
+        return null;
+    }
+}
+
+// 获取地图中文名
+async function getMapName(mapId) {
+    if (!mapId) return null;
+    if (mapNameCache[mapId]) return mapNameCache[mapId];
+    try {
+        const mapDoc = await apiRequest(`/databases/${DATABASE_ID}/collections/${MAP_COLLECTION_ID}/documents/${mapId}`);
+        mapNameCache[mapId] = mapDoc.name || mapId;
+        return mapNameCache[mapId];
+    } catch (error) {
+        console.warn(`获取地图 ${mapId} 名称失败`, error);
         return null;
     }
 }
@@ -53,25 +68,31 @@ export async function renderMapPanel() {
             forward: null, back: null, left: null, right: null,
             buildings: JSON.stringify([])
         };
-        return renderMapHTML(currentMapData, [], []);
+        return renderMapHTML(currentMapData, [], [], {}, {});
     }
 
     const monsterIds = JSON.parse(currentMapData.monsterList || '[]');
     const npcIds = JSON.parse(currentMapData.npcList || '[]');
 
-    // 并发获取所有怪物的中文名（利用缓存）
+    // 并发获取怪物中文名
     const monsterNamePromises = monsterIds.map(async id => {
         const base = await getMonsterBase(id);
         return base ? base.name : id;
     });
     const monsterNames = await Promise.all(monsterNamePromises);
-
     const npcNames = npcIds.map(id => npcNameMap[id] || id);
 
-    return renderMapHTML(currentMapData, monsterIds, monsterNames, npcIds, npcNames);
+    // 并发获取各个方向的地图中文名
+    const dirs = ['forward', 'back', 'left', 'right'];
+    const dirPromises = dirs.map(dir => getMapName(currentMapData[dir]));
+    const dirNames = await Promise.all(dirPromises);
+    const dirMap = {};
+    dirs.forEach((dir, idx) => { dirMap[dir] = dirNames[idx]; });
+
+    return renderMapHTML(currentMapData, monsterIds, monsterNames, npcIds, npcNames, dirMap);
 }
 
-function renderMapHTML(map, monsterIds, monsterNames, npcIds, npcNames) {
+function renderMapHTML(map, monsterIds, monsterNames, npcIds, npcNames, dirMap) {
     const buildings = JSON.parse(map.buildings || '[]');
     
     let monsterHtml = '';
@@ -85,6 +106,9 @@ function renderMapHTML(map, monsterIds, monsterNames, npcIds, npcNames) {
     }
     
     const descHtml = map.description ? `<div class="location-desc">${map.description}</div>` : '';
+
+    // 构建方向说明行
+    const dirText = `前：${dirMap.forward || '无路'} 左：${dirMap.left || '无路'} 后：${dirMap.back || '无路'} 右：${dirMap.right || '无路'}`;
     
     return `
         <div class="map-card">
@@ -102,6 +126,7 @@ function renderMapHTML(map, monsterIds, monsterNames, npcIds, npcNames) {
             <button class="dir-btn" id="moveBack">后</button>
             <button class="dir-btn" id="moveRight">右</button>
         </div>
+        <div class="direction-info">${dirText}</div>
         <button class="btn" id="exploreBtn">探索（打怪）</button>
         <button class="btn" id="talkNpcBtn">对话 NPC</button>
     `;
@@ -141,7 +166,7 @@ async function moveTo(dest) {
         showPanel('map');
     } catch (error) {
         if (error.code === 404) {
-            showLog(`此方向无法移动（地图 ${mappedDest} 不存在）`);
+            showLog('此路不通');
         } else {
             showLog('移动失败：' + error.message);
         }
@@ -160,14 +185,12 @@ async function fightMonster(monsterId) {
     const player = getPlayerData();
     if (player.hp <= 0) { showLog('你已经没有力气了'); return; }
 
-    // 获取怪物基础数据（从缓存或网络）
     const monsterBase = await getMonsterBase(monsterId);
     if (!monsterBase) {
         showLog(`怪物 ${monsterId} 不存在`);
         return;
     }
 
-    // 初始化或继续战斗
     let currentMonsterHp = player.battleMonsterHp;
     let currentMonsterId = player.battleMonsterId;
 
@@ -177,19 +200,15 @@ async function fightMonster(monsterId) {
         showLog(`遇到 ${monsterBase.name}，开始战斗！`);
     }
 
-    // 计算伤害
     const playerAttack = await calcTotalAttack();
     const playerDefense = await calcTotalDefense();
     const playerDamage = Math.max(1, playerAttack - monsterBase.defense);
     const monsterDamage = Math.max(1, monsterBase.attack - playerDefense);
 
-    // 玩家攻击
     currentMonsterHp -= playerDamage;
     showLog(`你对 ${monsterBase.name} 造成 ${playerDamage} 伤害，怪物剩余 ${currentMonsterHp} 生命。`);
 
-    // 检查怪物是否死亡
     if (currentMonsterHp <= 0) {
-        // 获得奖励
         const expReward = monsterBase.expReward;
         const lingShiReward = monsterBase.lingShiReward;
         const dropItems = JSON.parse(monsterBase.dropItems || '[]');
@@ -208,27 +227,20 @@ async function fightMonster(monsterId) {
             player.backpack[item.name] += item.count;
         });
 
-        // 清除战斗状态
         player.battleMonsterId = null;
         player.battleMonsterHp = null;
 
-        // 处理升级（只修改内存，稍后统一保存）
         await applyLevelUp();
-
-        // 一次性保存所有更改
         await savePlayerData();
 
         showLog(`击败 ${monsterBase.name}，获得 ${finalExp} 修为、${finalLingShi} 灵石${dropItems.length ? '，并获得物品' : ''}`);
     } else {
-        // 怪物反击
         player.hp -= monsterDamage;
         if (player.hp < 0) player.hp = 0;
         
-        // 保存战斗状态
         player.battleMonsterId = currentMonsterId;
         player.battleMonsterHp = currentMonsterHp;
         
-        // 玩家可能死亡
         if (player.hp <= 0) {
             player.battleMonsterId = null;
             player.battleMonsterHp = null;
@@ -237,7 +249,6 @@ async function fightMonster(monsterId) {
             showLog(`怪物对你造成 ${monsterDamage} 伤害，你剩余 ${player.hp}/${player.maxHp} 生命。`);
         }
 
-        // 保存所有更改
         await savePlayerData();
     }
 }

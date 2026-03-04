@@ -56,7 +56,7 @@ export async function updateHeaderUI() {
     document.getElementById('lingShi').innerText = data.lingShi;
     document.getElementById('hpDisplay').innerHTML = `${data.hp}/${data.maxHp}`;
     document.getElementById('cultivationVal').innerText = `${data.exp}/${data.expToNext}`;
-    document.getElementById('currentLocTag').innerText = data.position || 'xinshoucun';
+    // 已删除更新底部ID的代码
 }
 
 document.querySelectorAll('.nav-btn').forEach(btn => {
