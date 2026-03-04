@@ -1,11 +1,15 @@
 import { apiRequest, DATABASE_ID, MAP_COLLECTION_ID, MONSTERS_COLLECTION_ID } from './api.js';
-import { getPlayerData, savePlayerData, calcTotalAttack, calcTotalDefense, getEquipmentStats, applyLevelUp } from './gameCore.js';
+import { 
+    getPlayerData, savePlayerData, calcTotalAttack, calcTotalDefense, 
+    getEquipmentStats, applyLevelUp, 
+    calcTotalExpMultiplier, calcTotalLingShiMultiplier  // 新增倍率函数
+} from './gameCore.js';
 import { showPanel, showLog } from './ui.js';
 
 let currentMapData = null;
 let monsterNameMap = {};
 let monsterBaseMap = {};
-let mapNameCache = {}; // 地图名称缓存
+let mapNameCache = {};
 const npcNameMap = { 'cunzhang': '村长' };
 
 const positionMap = {
@@ -16,7 +20,7 @@ const positionMap = {
     '沙滩': 'shatan'
 };
 
-// 获取怪物基础数据
+// 获取怪物基础数据（带缓存）
 async function getMonsterBase(monsterId) {
     if (monsterBaseMap[monsterId]) return monsterBaseMap[monsterId];
     try {
@@ -68,13 +72,13 @@ export async function renderMapPanel() {
             forward: null, back: null, left: null, right: null,
             buildings: JSON.stringify([])
         };
-        return renderMapHTML(currentMapData, [], [], {}, {});
+        return renderMapHTML(currentMapData, [], [], {});
     }
 
     const monsterIds = JSON.parse(currentMapData.monsterList || '[]');
     const npcIds = JSON.parse(currentMapData.npcList || '[]');
 
-    // 并发获取怪物中文名
+    // 并发获取所有怪物的中文名
     const monsterNamePromises = monsterIds.map(async id => {
         const base = await getMonsterBase(id);
         return base ? base.name : id;
@@ -106,8 +110,6 @@ function renderMapHTML(map, monsterIds, monsterNames, npcIds, npcNames, dirMap) 
     }
     
     const descHtml = map.description ? `<div class="location-desc">${map.description}</div>` : '';
-
-    // 构建方向说明行
     const dirText = `前：${dirMap.forward || '无路'} 左：${dirMap.left || '无路'} 后：${dirMap.back || '无路'} 右：${dirMap.right || '无路'}`;
     
     return `
@@ -202,6 +204,7 @@ async function fightMonster(monsterId) {
 
     const playerAttack = await calcTotalAttack();
     const playerDefense = await calcTotalDefense();
+
     const playerDamage = Math.max(1, playerAttack - monsterBase.defense);
     const monsterDamage = Math.max(1, monsterBase.attack - playerDefense);
 
@@ -213,9 +216,11 @@ async function fightMonster(monsterId) {
         const lingShiReward = monsterBase.lingShiReward;
         const dropItems = JSON.parse(monsterBase.dropItems || '[]');
         
-        const weaponStats = await getEquipmentStats(player.equipWeapon);
-        const finalExp = Math.floor(expReward * (weaponStats.expMultiplier || 1));
-        const finalLingShi = Math.floor(lingShiReward * (weaponStats.currencyMultiplier || 1));
+        // 使用总倍率（经验、灵石）
+        const expMultiplier = await calcTotalExpMultiplier();
+        const lingShiMultiplier = await calcTotalLingShiMultiplier();
+        const finalExp = Math.floor(expReward * expMultiplier);
+        const finalLingShi = Math.floor(lingShiReward * lingShiMultiplier);
         
         player.exp += finalExp;
         player.lingShi += finalLingShi;
@@ -230,6 +235,7 @@ async function fightMonster(monsterId) {
         player.battleMonsterId = null;
         player.battleMonsterHp = null;
 
+        // 处理升级
         await applyLevelUp();
         await savePlayerData();
 

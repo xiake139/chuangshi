@@ -31,17 +31,24 @@ export async function renderEquipmentPanel() {
         }
     }
 
+    // 当前装备的中文名
     const weaponName = equipmentMap[data.equipWeapon]?.name || data.equipWeapon || '无';
     const armorName = equipmentMap[data.equipArmor]?.name || data.equipArmor || '无';
     const accessoryName = equipmentMap[data.equipAccessory]?.name || data.equipAccessory || '无';
 
+    // 生成可选装备列表（包含倍率显示）
     let availableHtml = '';
     ownedEquipmentNames.forEach(eqName => {
         const eq = allEquipment.find(e => e.name === eqName);
         if (eq) {
+            // 构建倍率字符串
+            let multiplierStr = '';
+            if (eq.expMultiplier && eq.expMultiplier !== 1) multiplierStr += ` 经验x${eq.expMultiplier}`;
+            if (eq.currencyMultiplier && eq.currencyMultiplier !== 1) multiplierStr += ` 灵石x${eq.currencyMultiplier}`;
+            if (eq.crystalMultiplier && eq.crystalMultiplier !== 1) multiplierStr += ` 晶石x${eq.crystalMultiplier}`;
             availableHtml += `
                 <div class="item-row">
-                    <span>${eq.name} (攻击+${eq.attack} 防御+${eq.defense} 生命+${eq.hp})</span>
+                    <span>${eq.name} (攻击+${eq.attack} 防御+${eq.defense} 生命+${eq.hp}${multiplierStr})</span>
                     <button class="equip-select" data-type="${eq.type}" data-name="${eq.$id}">穿戴</button>
                 </div>
             `;

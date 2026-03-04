@@ -23,7 +23,7 @@ export function setPlayerData(data) {
 
 // 获取装备属性（已缓存）
 export async function getEquipmentStats(equipId) {
-    if (!equipId || equipId === '无') return { attack: 0, defense: 0, hp: 0, expMultiplier: 1, currencyMultiplier: 1 };
+    if (!equipId || equipId === '无') return { attack: 0, defense: 0, hp: 0, expMultiplier: 1, currencyMultiplier: 1, crystalMultiplier: 1 };
     if (equipmentCache[equipId]) return equipmentCache[equipId];
     try {
         const doc = await apiRequest(`/databases/${DATABASE_ID}/collections/${EQUIPMENT_COLLECTION_ID}/documents/${equipId}`);
@@ -32,12 +32,13 @@ export async function getEquipmentStats(equipId) {
             defense: doc.defense || 0,
             hp: doc.hp || 0,
             expMultiplier: doc.expMultiplier || 1,
-            currencyMultiplier: doc.currencyMultiplier || 1
+            currencyMultiplier: doc.currencyMultiplier || 1,
+            crystalMultiplier: doc.crystalMultiplier || 1
         };
         return equipmentCache[equipId];
     } catch (error) {
         console.warn(`装备 ${equipId} 不存在，返回默认值`);
-        return { attack: 0, defense: 0, hp: 0, expMultiplier: 1, currencyMultiplier: 1 };
+        return { attack: 0, defense: 0, hp: 0, expMultiplier: 1, currencyMultiplier: 1, crystalMultiplier: 1 };
     }
 }
 
@@ -68,6 +69,60 @@ export async function recalcTotalMaxHp() {
     if (playerData.hp > totalMaxHp) playerData.hp = totalMaxHp;
     playerData.maxHp = totalMaxHp;
     if (!playerData.baseMaxHp) playerData.baseMaxHp = baseMaxHp;
+}
+
+// 计算总经验倍率（所有装备累乘）
+export async function calcTotalExpMultiplier() {
+    let multiplier = 1.0;
+    if (playerData.equipWeapon && playerData.equipWeapon !== '无') {
+        const stats = await getEquipmentStats(playerData.equipWeapon);
+        multiplier *= stats.expMultiplier || 1;
+    }
+    if (playerData.equipArmor && playerData.equipArmor !== '无') {
+        const stats = await getEquipmentStats(playerData.equipArmor);
+        multiplier *= stats.expMultiplier || 1;
+    }
+    if (playerData.equipAccessory && playerData.equipAccessory !== '无') {
+        const stats = await getEquipmentStats(playerData.equipAccessory);
+        multiplier *= stats.expMultiplier || 1;
+    }
+    return multiplier;
+}
+
+// 计算总灵石倍率（所有装备累乘）
+export async function calcTotalLingShiMultiplier() {
+    let multiplier = 1.0;
+    if (playerData.equipWeapon && playerData.equipWeapon !== '无') {
+        const stats = await getEquipmentStats(playerData.equipWeapon);
+        multiplier *= stats.currencyMultiplier || 1;
+    }
+    if (playerData.equipArmor && playerData.equipArmor !== '无') {
+        const stats = await getEquipmentStats(playerData.equipArmor);
+        multiplier *= stats.currencyMultiplier || 1;
+    }
+    if (playerData.equipAccessory && playerData.equipAccessory !== '无') {
+        const stats = await getEquipmentStats(playerData.equipAccessory);
+        multiplier *= stats.currencyMultiplier || 1;
+    }
+    return multiplier;
+}
+
+// 计算总晶石倍率（所有装备累乘）
+export async function calcTotalCrystalMultiplier() {
+    let multiplier = 1.0;
+    if (playerData.equipWeapon && playerData.equipWeapon !== '无') {
+        const stats = await getEquipmentStats(playerData.equipWeapon);
+        multiplier *= stats.crystalMultiplier || 1;
+    }
+    if (playerData.equipArmor && playerData.equipArmor !== '无') {
+        const stats = await getEquipmentStats(playerData.equipArmor);
+        multiplier *= stats.crystalMultiplier || 1;
+    }
+    if (playerData.equipAccessory && playerData.equipAccessory !== '无') {
+        const stats = await getEquipmentStats(playerData.equipAccessory);
+        multiplier *= stats.crystalMultiplier || 1;
+    }
+    return multiplier;
 }
 
 // 创建新玩家数据
@@ -164,7 +219,7 @@ export async function savePlayerData(updatedFields = {}) {
     updateHeaderUI();
 }
 
-// 升级处理（每升一级，基础攻击和防御增加 当前等级 * 2 * 当前等级）
+// 升级处理
 export async function applyLevelUp() {
     let changed = false;
     while (playerData.exp >= playerData.expToNext) {
@@ -172,17 +227,16 @@ export async function applyLevelUp() {
         playerData.exp -= playerData.expToNext;
         playerData.expToNext = Math.floor(playerData.expToNext * 1.2);
 
-        // 新增攻击防御：当前等级 * 2 * 当前等级
         const increment = playerData.level * 2 * playerData.level;
         playerData.baseAttack += increment;
         playerData.baseDefense += increment;
 
-        playerData.baseMaxHp += 20; // 生命成长保持不变
+        playerData.baseMaxHp += 20;
         changed = true;
     }
     if (changed) {
         await recalcTotalMaxHp();
-        playerData.hp = playerData.maxHp; // 升级回满血
+        playerData.hp = playerData.maxHp;
     }
 }
 
