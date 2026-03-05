@@ -26,7 +26,7 @@ async function logoutIfAny() {
     try {
         await apiRequest('/account/sessions/current', { method: 'DELETE' });
     } catch (e) {
-        // 忽略错误（可能没有会话）
+        // 忽略错误
     }
 }
 
@@ -47,6 +47,8 @@ async function register(email, password, name) {
         method: 'POST',
         body: JSON.stringify({ userId: 'unique()', email, password, name })
     });
+    // 等待一小段时间确保会话稳定
+    await new Promise(resolve => setTimeout(resolve, 100));
     return login(email, password);
 }
 
@@ -77,7 +79,8 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
         }
         showGameScreen();
     } catch (error) {
-        authMessage.innerText = error.message;
+        console.error('认证错误:', error);
+        authMessage.innerText = error.message || '未知错误';
     }
 });
 
