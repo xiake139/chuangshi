@@ -25,6 +25,7 @@ switchSpan.addEventListener('click', () => {
 async function logoutIfAny() {
     try {
         await apiRequest('/account/sessions/current', { method: 'DELETE' });
+        console.log('已登出现有会话');
     } catch (e) {
         // 忽略错误
     }
@@ -33,12 +34,12 @@ async function logoutIfAny() {
 // 登录并获取用户
 async function login(email, password) {
     await logoutIfAny();
-    console.log('正在登录...');
+    console.log('正在创建登录会话...');
     await apiRequest('/account/sessions/email', {
         method: 'POST',
         body: JSON.stringify({ email, password })
     });
-    console.log('登录成功，获取用户信息...');
+    console.log('登录会话创建成功，正在获取用户信息...');
     return apiRequest('/account');
 }
 
@@ -51,8 +52,8 @@ async function register(email, password, name) {
         body: JSON.stringify({ userId: 'unique()', email, password, name })
     });
     console.log('账户创建成功，稍后尝试登录...');
-    // 等待一小段时间确保账户生效
-    await new Promise(resolve => setTimeout(resolve, 200));
+    // 等待一段时间确保账户生效
+    await new Promise(resolve => setTimeout(resolve, 500));
     return login(email, password);
 }
 
@@ -67,6 +68,7 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
     try {
         if (isLoginMode) {
             const user = await login(email, password);
+            console.log('登录成功，用户：', user);
             setCurrentUserId(user.$id);
             await loadPlayerData(user.$id);
         } else {
@@ -76,6 +78,7 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
                 return;
             }
             const user = await register(email, password, roleName);
+            console.log('注册登录成功，用户：', user);
             setCurrentUserId(user.$id);
             const newPlayerData = await createPlayerData(user.$id, roleName);
             setPlayerData(newPlayerData);
@@ -83,7 +86,7 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
         }
         showGameScreen();
     } catch (error) {
-        console.error('认证错误:', error);
+        console.error('认证错误详情:', error);
         authMessage.innerText = `错误: ${error.message || '未知错误'}`;
     }
 });

@@ -20,18 +20,29 @@ export async function apiRequest(path, options = {}) {
         'X-Appwrite-Project': PROJECT_ID,
         ...(options.headers || {})
     };
-    const response = await fetch(url, {
-        ...options,
-        headers,
-        credentials: 'include', // 重要：携带 cookie
-        mode: 'cors'            // 明确跨域模式
-    });
-    const data = await response.json();
-    if (!response.ok) {
-        const error = new Error(data.message || `HTTP ${response.status}`);
-        error.code = data.code;
-        error.type = data.type;
+    try {
+        const response = await fetch(url, {
+            ...options,
+            headers,
+            credentials: 'include',
+            mode: 'cors'
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            // 输出详细错误
+            console.error('API 请求失败:', {
+                url,
+                status: response.status,
+                data
+            });
+            const error = new Error(data.message || `HTTP ${response.status}`);
+            error.code = data.code;
+            error.type = data.type;
+            throw error;
+        }
+        return data;
+    } catch (error) {
+        console.error('网络或解析错误:', error);
         throw error;
     }
-    return data;
 }
