@@ -30,22 +30,18 @@ async function logoutIfAny() {
     }
 }
 
-// 登录
+// 登录并获取用户
 async function login(email, password) {
-    return apiRequest('/account/sessions/email', {
+    await logoutIfAny();
+    await apiRequest('/account/sessions/email', {
         method: 'POST',
         body: JSON.stringify({ email, password })
     });
-}
-
-// 获取当前用户
-async function getAccount() {
     return apiRequest('/account');
 }
 
-// 注册
+// 注册并获取用户
 async function register(email, password, name) {
-    // 先尝试登出，避免会话冲突
     await logoutIfAny();
     await apiRequest('/account', {
         method: 'POST',
@@ -64,21 +60,17 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
     }
     try {
         if (isLoginMode) {
-            await login(email, password);
-            const user = await getAccount();
+            const user = await login(email, password);
             setCurrentUserId(user.$id);
             await loadPlayerData(user.$id);
         } else {
-            // 注册模式：必须输入角色名
             const roleName = roleNameInput.value.trim();
             if (!roleName) {
                 authMessage.innerText = '请输入角色名';
                 return;
             }
-            await register(email, password, roleName);
-            const user = await getAccount();
+            const user = await register(email, password, roleName);
             setCurrentUserId(user.$id);
-            // 显式创建玩家数据，并直接使用返回的数据
             const newPlayerData = await createPlayerData(user.$id, roleName);
             setPlayerData(newPlayerData);
             updateHeaderUI();

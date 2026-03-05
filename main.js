@@ -1,16 +1,3 @@
-import { apiRequest } from './api.js';
-import { setCurrentUserId, loadPlayerData } from './gameCore.js';
-import { showGameScreen } from './ui.js';
-
-async function checkSession() {
-    try {
-        const user = await apiRequest('/account');
-        setCurrentUserId(user.$id);
-        await loadPlayerData(user.$id);
-        showGameScreen();
-    } catch (error) {
-        console.log('请登录');
-    }
-}
-
-checkSession();
+// main.js - 取消自动登录，需要用户手动登录
+console.log('游戏加载完成，等待用户手动登录');
+// 不执行任何自动会话检查，用户需点击登录按钮
