@@ -23,7 +23,8 @@ export async function apiRequest(path, options = {}) {
     const response = await fetch(url, {
         ...options,
         headers,
-        credentials: 'include' // 重要：携带 cookie
+        credentials: 'include', // 重要：携带 cookie
+        mode: 'cors'            // 明确跨域模式
     });
     const data = await response.json();
     if (!response.ok) {

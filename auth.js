@@ -33,22 +33,26 @@ async function logoutIfAny() {
 // 登录并获取用户
 async function login(email, password) {
     await logoutIfAny();
+    console.log('正在登录...');
     await apiRequest('/account/sessions/email', {
         method: 'POST',
         body: JSON.stringify({ email, password })
     });
+    console.log('登录成功，获取用户信息...');
     return apiRequest('/account');
 }
 
 // 注册并获取用户
 async function register(email, password, name) {
     await logoutIfAny();
+    console.log('正在创建账户...');
     await apiRequest('/account', {
         method: 'POST',
         body: JSON.stringify({ userId: 'unique()', email, password, name })
     });
-    // 等待一小段时间确保会话稳定
-    await new Promise(resolve => setTimeout(resolve, 100));
+    console.log('账户创建成功，稍后尝试登录...');
+    // 等待一小段时间确保账户生效
+    await new Promise(resolve => setTimeout(resolve, 200));
     return login(email, password);
 }
 
@@ -80,7 +84,7 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
         showGameScreen();
     } catch (error) {
         console.error('认证错误:', error);
-        authMessage.innerText = error.message || '未知错误';
+        authMessage.innerText = `错误: ${error.message || '未知错误'}`;
     }
 });
 
